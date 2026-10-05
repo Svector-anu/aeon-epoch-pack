@@ -1,0 +1,49 @@
+{
+  "name": "Epoch Pack",
+  "version": "0.1",
+  "author": "Svector-anu",
+  "license": "MIT",
+  "description": "an engineering loop with receipts: spec, build, review and a merge-readiness verdict, each pinned to one commit. nothing merges itself.",
+  "skills": [
+    {
+      "slug": "epoch-spec",
+      "path": "skills/epoch-spec",
+      "description": "turn one intent into a repo map, an optional spec and one runnable work order per unit. plans only, no code.",
+      "category": "dev",
+      "schedule": "workflow_dispatch",
+      "default_enabled": false,
+      "secrets_required": [],
+      "capabilities": ["read_only"]
+    },
+    {
+      "slug": "epoch-build",
+      "path": "skills/epoch-build",
+      "description": "execute one work order in an isolated checkout, verify it locally and open one pull request. never merges.",
+      "category": "dev",
+      "schedule": "workflow_dispatch",
+      "default_enabled": false,
+      "secrets_required": ["GH_GLOBAL"],
+      "capabilities": ["external_api", "writes_external_host"]
+    },
+    {
+      "slug": "epoch-review",
+      "path": "skills/epoch-review",
+      "description": "review one pull request against its work order at one pinned head sha and post a single gate-accepted receipt.",
+      "category": "dev",
+      "schedule": "workflow_dispatch",
+      "default_enabled": false,
+      "secrets_required": ["GH_GLOBAL"],
+      "capabilities": ["external_api", "writes_external_host"]
+    },
+    {
+      "slug": "epoch-watch",
+      "path": "skills/epoch-watch",
+      "description": "say whether a pull request is merge-ready: github state plus review and proof receipts at one head sha.",
+      "category": "dev",
+      "schedule": "workflow_dispatch",
+      "default_enabled": false,
+      "secrets_optional": ["GH_GLOBAL"],
+      "capabilities": ["external_api"]
+    }
+  ]
+}
