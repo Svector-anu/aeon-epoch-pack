@@ -1,30 +1,33 @@
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="assets/logo-light.svg">
-    <img alt="epoch" src="assets/logo-dark.svg" width="420">
-  </picture>
-</p>
+# epoch
 
-<p align="center">an engineering loop for <a href="https://github.com/aeonfun/aeon">aeon</a>. intent in, merge-ready pr out, every claim pinned to one commit.</p>
+**epoch is your unattended software engineer. it is the engineering workflow running inside an aeon instance.**
+
+give it a goal and a codebase. it takes the work from spec to build, review, proof and a verdict on whether the pr is ready to merge. it reads the repo, plans the change, writes the code, runs the checks, reviews its own diff, fixes what fails in one bounded pass, and shows evidence that the change works.
+
+it doesn't stop at generating code. it can pick up existing work, see what already happened, continue where it stopped, and carry a change to a verified result.
+
+you stay in control. you define what needs to happen. epoch does the engineering, and you press merge.
 
 <p align="center"><img alt="a ready verdict with four checks at one sha" src="assets/receipt.svg" width="640"></p>
 
-## highlights
+your codebase. your aeon. your engineer.
 
-- four skills: spec, build, review, watch. proof comes from `create-prove`, which ships with aeon.
-- review and proof are receipts, not opinions. each is bound to one 40-char head sha.
-- it never merges anything. that part stays yours.
-- runs on your own github actions. nothing to install on your machine.
+## the loop
 
 ```
-you ── intent ──▶ epoch-spec    ──▶ a work order (goal, scope, verify, forbidden)
-                  epoch-build   ──▶ one branch, one pr
-                  epoch-review  ──▶ a review receipt, pinned to the head sha
-                  create-prove  ──▶ a proof receipt, pinned to the same sha   (ships with aeon)
-                  epoch-watch   ──▶ READY / NOT READY, and which condition failed
-you ── merge ───▶ (github, your call)
+spec ─▶ build ─▶ review ─▶ prove ─▶ watch ─▶ ship
 ```
+
+| stage | what happens | skill |
+|---|---|---|
+| spec | understand the task, the repo, the constraints and the expected outcome. one small work order per unit | `epoch-spec` |
+| build | implement the order in a throwaway checkout, run its verify commands, open one pr | `epoch-build` |
+| review | inspect the diff at a pinned sha, re-run the pr's own claims, make one bounded repair if needed | `epoch-review`, `epoch-build` |
+| prove | run the change and capture evidence at the same sha | `create-prove` (ships with aeon) |
+| watch | check the four ready conditions and say which one failed | `epoch-watch` |
+| ship | merge. this one is yours | you |
+
+everything runs through your aeon instance, with its skills, tools, memory, permissions and github actions. nothing to install on your machine.
 
 ## the point: receipts, not vibes
 
@@ -44,17 +47,6 @@ a model saying "looks good" is not evidence. so review and proof are **receipts*
 4. a proof receipt exists
 
 github saying "mergeable" is one condition of four, not the answer. it can say yes while the review and proof receipts are missing, and then the pr is not ready.
-
-## the skills
-
-| skill | does | writes |
-|---|---|---|
-| `epoch-spec` | classifies the intent, keeps a repo map fresh, writes one small work order per unit | `memory/topics/<project>/` |
-| `epoch-build` | runs one order in a throwaway checkout, runs its verify commands, opens one pr. also does the single bounded repair pass | a branch, a pr, a pointer file |
-| `epoch-review` | reviews the diff against the order at a pinned sha, re-runs the pr's own claims, posts exactly one receipt | one github review |
-| `epoch-watch` | checks the four conditions, writes a readiness verdict, refreshes the project handoff | `memory/skills/epoch-watch/` |
-
-review is built to be independent of build: it never reads the builder's notes or logs, only the order, the diff and the repo. if it did see them, it says so and downgrades itself.
 
 ## what you need
 

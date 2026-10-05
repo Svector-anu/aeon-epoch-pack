@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="560" height="140" viewBox="0 0 560 140" role="img" aria-label="epoch">
-  <g fill="none" stroke="#1a7f37" stroke-width="6" stroke-linecap="round">
-    <circle cx="70" cy="70" r="40"/>
-    <path d="M52 72l13 13 25-29"/>
-  </g>
-  <text x="140" y="86" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="64" font-weight="700" fill="#1f2328" letter-spacing="-2">epoch</text>
-  <text x="142" y="116" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="17" fill="#59636e">receipts, not vibes.</text>
-</svg>

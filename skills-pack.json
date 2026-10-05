@@ -3,7 +3,7 @@
   "version": "0.1",
   "author": "Svector-anu",
   "license": "MIT",
-  "description": "an engineering loop with receipts: spec, build, review and a merge-readiness verdict, each pinned to one commit. nothing merges itself.",
+  "description": "epoch is your unattended software engineer, running inside your aeon instance: spec, build, review, prove and a merge-ready verdict, each pinned to one commit. you merge.",
   "skills": [
     {
       "slug": "epoch-spec",
@@ -13,7 +13,9 @@
       "schedule": "workflow_dispatch",
       "default_enabled": false,
       "secrets_required": [],
-      "capabilities": ["read_only"]
+      "capabilities": [
+        "read_only"
+      ]
     },
     {
       "slug": "epoch-build",
@@ -22,8 +24,13 @@
       "category": "dev",
       "schedule": "workflow_dispatch",
       "default_enabled": false,
-      "secrets_required": ["GH_GLOBAL"],
-      "capabilities": ["external_api", "writes_external_host"]
+      "secrets_required": [
+        "GH_GLOBAL"
+      ],
+      "capabilities": [
+        "external_api",
+        "writes_external_host"
+      ]
     },
     {
       "slug": "epoch-review",
@@ -32,8 +39,13 @@
       "category": "dev",
       "schedule": "workflow_dispatch",
       "default_enabled": false,
-      "secrets_required": ["GH_GLOBAL"],
-      "capabilities": ["external_api", "writes_external_host"]
+      "secrets_required": [
+        "GH_GLOBAL"
+      ],
+      "capabilities": [
+        "external_api",
+        "writes_external_host"
+      ]
     },
     {
       "slug": "epoch-watch",
@@ -42,8 +54,12 @@
       "category": "dev",
       "schedule": "workflow_dispatch",
       "default_enabled": false,
-      "secrets_optional": ["GH_GLOBAL"],
-      "capabilities": ["external_api"]
+      "secrets_optional": [
+        "GH_GLOBAL"
+      ],
+      "capabilities": [
+        "external_api"
+      ]
     }
   ]
 }
