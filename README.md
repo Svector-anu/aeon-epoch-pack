@@ -29,7 +29,7 @@ spec ─▶ build ─▶ review ─▶ prove ─▶ watch ─▶ ship
 
 everything runs through your aeon instance, with its skills, tools, memory, permissions and github actions. nothing to install on your machine.
 
-## the point: receipts, not vibes
+## the point: receipts, 
 
 a model saying "looks good" is not evidence. so review and proof are **receipts**: a one-line marker in a github comment, bound to one 40-char head sha.
 
