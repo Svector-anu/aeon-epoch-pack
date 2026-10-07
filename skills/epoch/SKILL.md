@@ -53,13 +53,13 @@ Write it on Start and whenever the phase changes (tick step 6), whole and valid,
 
 ### Unit record
 
-You add exactly one additive key, `epoch`, to the candidate and keep every spec-owned key as is. Missing `epoch` means state `ready`.
+You add exactly one additive key, `epoch`, to the candidate and keep every spec-owned key as is. Missing `epoch` means state `ready`. `waiting_since` is when the unit first sat in a wait row (rows 4 and 12); any other row clears it, and a new head clears it. A `watch` record made only to refresh stale readiness carries `"refresh": true`.
 
 ```json
 "epoch": {
   "project": "<slug>", "repo": "<owner>/<repo>", "state": "ready",
   "pr": "<owner>/<repo>#<N>", "head_sha": "<40 hex>",
-  "repair_used": false,
+  "repair_used": false, "waiting_since": null,
   "dispatches": [ { "stage": "build", "sha": "none", "id": "<dispatch id>", "at": "<RFC3339>" } ],
   "resumed_at": null, "blocked_reason": null, "notified": []
 }
@@ -93,7 +93,9 @@ For each active project (resume: only that one), in order:
    bash scripts/dev-loop-proof.sh verify <repo>#<N> <sha>    # exit 0: proven
    ```
 
-   Non-zero from a gate means absent at that sha. Read `memory/skills/epoch-watch/readiness.json`; it applies only if its `target` and `sha` equal the live PR and head and `checked_at` is not before the last dispatch record of this unit. Its `next` is one of `wait-ci | needs-review | needs-repair | needs-prove | address-threads | merge-ready | closed | merged | rebase-needed`, with `repair_authorized`.
+   Non-zero from a gate means absent at that sha. Read `memory/skills/epoch-watch/readiness.json`; it applies only if its `target` and `sha` equal the live PR and head and `checked_at` is not before the last non-refresh dispatch record of this unit, and it is not stale (below). Its `next` is one of `wait-ci | needs-review | needs-repair | needs-prove | address-threads | merge-ready | closed | merged | rebase-needed`, with `repair_authorized`.
+
+   Readiness whose `next` is `wait-ci`, `address-threads`, `needs-repair` or `rebase-needed` describes something a human or CI changes without moving the head, so it goes stale: older than 15 minutes (`checked_at` vs now) it is stale and row 10 refreshes it. On `resume:`, readiness with `checked_at` before `resumed_at` is stale whatever its `next`.
 4. Decide with the first row that matches. Dispatch at most one stage, then go to step 5.
 
 | # | Facts | Action | Unit state after |
@@ -102,20 +104,19 @@ For each active project (resume: only that one), in order:
 | 2 | PR closed, not merged | block: `pr closed without merge` | blocked |
 | 3 | no PR, no build in flight | dispatch `epoch-build` var = candidate `var` (stage `build`, sha `none`) | building |
 | 3b | no PR, build in flight | wait | building |
-| 4 | PR is draft | block: `pr is draft` | blocked |
+| 4 | PR is draft | wait; set `waiting_since` if null. A draft that has waited more than 120 minutes: block `pr is draft` | watching |
 | 5 | head differs from `epoch.head_sha` and no repair in flight | record the new head. Old receipts are sha-bound and now irrelevant: continue at row 6 on the new head. Keep `repair_used`. | pr-open |
 | 5b | head differs, repair in flight (a `repair` record for the old head) | accept the new head, record it, continue at row 6 | pr-open |
 | 6 | review receipt absent at head | dispatch `epoch-review` var `<repo>#<N>@<sha>` | reviewing |
 | 7 | review actionable (`blocked` or `discussion-needed`) and `repair_used` false | set `repair_used` true, dispatch `epoch-build` var `repair:<repo>#<N>@<sha>` (stage `repair`) | repairing |
 | 8 | review actionable and `repair_used` true | block: `review <verdict> at <sha7> after the one repair pass`, with the findings | blocked |
 | 9 | review `approve-ready`, proof absent | dispatch `epoch-prove` var `<repo>#<N>@<sha>` | proving |
-| 10 | review ok, proof present, readiness missing or stale | dispatch `epoch-watch` var `<repo>#<N>` (stage `watch`) | watching |
+| 10 | review ok, proof present, readiness missing, or stale by sha, dispatch or the 15-minute rule | dispatch `epoch-watch` var `<repo>#<N>` (stage `watch`). Stale only by the time rule or by `resume:`: a refresh dispatch (`"refresh": true`), at most one per 15 minutes per unit and never counted in the stage budget; inside the 15 minutes, or with a watch run queued, wait. On `resume:` it is the tick's one dispatch and decisions wait for the next tick | watching |
 | 11 | readiness `next` = `merge-ready` | no dispatch; notify the human once per sha | merge-ready |
-| 12 | `wait-ci` | wait. First seen more than 120 minutes ago: block `ci still pending` | watching |
-| 13 | `needs-repair` or `address-threads`, `repair_authorized` true, `repair_used` false | as row 7 | repairing |
-| 14 | `needs-repair` or `address-threads`, otherwise | block with watch's blocking reasons (failing check names, thread count) | blocked |
-| 15 | `rebase-needed` | block: `base moved; rebase needed`. There is no rebase stage. | blocked |
-| 16 | `needs-review`, `needs-prove` while gates say present | contradiction: dispatch `epoch-watch` once (row 10 rules); still contradictory after that: block `gates and readiness disagree` | watching |
+| 12 | fresh `wait-ci` | wait; set `waiting_since` if null. Waiting more than 120 minutes: block `ci still pending` | watching |
+| 13 | fresh `needs-repair` or `address-threads` (an actionable review is already handled by rows 7 and 8, so nothing here is authorized to repair) | block with watch's blocking reasons: failing check names, thread count | blocked |
+| 14 | fresh `rebase-needed` | block: `base moved; rebase needed`. There is no rebase stage. | blocked |
+| 15 | fresh `needs-review`, `needs-prove` while gates say present | contradiction: dispatch `epoch-watch` once (row 10 rules, counted in the stage budget); still contradictory after that: block `gates and readiness disagree` | watching |
 
 5. Record the dispatch in the unit (`dispatches`, `state`, `head_sha`, `pr`, `blocked_reason`) and write the candidate whole, valid JSON.
 6. Update `conductor.json` `phase` if it changed (a `done` or `blocked` project stops being active here), then rewrite the handoff (Handoff section) from what is now true, last.
@@ -131,7 +132,7 @@ Instance repo and ref: `gh repo view --json nameWithOwner,defaultBranchRef`. The
    gh run list --repo <instance> --workflow aeon.yml --event workflow_dispatch --limit 100 --json displayTitle,status,conclusion,createdAt,url
    ```
 
-3. Budget: count the unit's `dispatches` of this stage and sha made after `resumed_at`. Two exist: block `<stage> failed twice at <sha7>`. Never a third.
+3. Budget: count the unit's `dispatches` of this stage and sha made after `resumed_at`, leaving out `refresh` records. Two exist: block `<stage> failed twice at <sha7>`. Never a third. A refresh watch is keyed on time instead: no `refresh` or `watch` record newer than 15 minutes for this unit, else wait (a `resume:` dispatch is the one exception).
 4. Dispatch exactly like create-prove:
 
    ```
@@ -148,7 +149,7 @@ A dispatched stage has a result when: build, a PR exists for `epoch/<unit>`; rep
 Each tick, before row 3 onward, check the unit's last dispatch without a result:
 
 - its run is queued or in progress and under 60 minutes old: wait, dispatch nothing
-- its run completed (any conclusion) with no result: that attempt is spent; the rows above redispatch under the budget
+- its run completed (any conclusion) with no result: that attempt is spent; the rows above redispatch under the budget. A `refresh` record spends nothing: the 15-minute rule alone decides the next one
 - not found, or still not done 60 minutes after `at`: block `<stage> stale after 60 minutes`
 
 A completed `prove` run with no receipt is not always a spent attempt. Read `memory/skills/epoch-prove/result.json`; it applies only if its `target` and `sha` equal the unit's and its `at` is not before the dispatch `at`.
@@ -171,13 +172,15 @@ Every failure maps to one of four actions: redispatch under the 2-attempt budget
 | prove refused | `result.json` code `PROVE_NO_ORDER`, `PROVE_UNSUPPORTED`, `PROVE_UNSAFE`, `PROVE_MISSING_VERIFY` or `PROVE_INVALID_TARGET` | block `prove refused: <code>` with the reason; never redispatch | none |
 | stage stale | run not found, or not done 60 minutes after `at` | block `<stage> stale after 60 minutes` | 60 minutes |
 | review actionable | verdict `blocked` or `discussion-needed` (rows 7, 8) | repair if `repair_used` is false, else block with the findings | the one repair pass |
-| CI red after repair | `needs-repair` with `repair_used` true (row 14) | block with the failing check names | no second repair |
-| review comments or threads open | `address-threads` (rows 13, 14) | repair if `repair_authorized` and `repair_used` is false, else block with the thread count | the one repair pass |
-| base moved | `rebase-needed` (row 15) | block `base moved; rebase needed` | none; there is no rebase stage |
+| CI red | `needs-repair` with a verdict that authorizes nothing (row 13) | block with the failing check names | no repair from CI |
+| review comments or threads open | `address-threads` (row 13) | block with the thread count; a repair pass comes only from an actionable review (rows 7, 8) | the one repair pass |
+| base moved | `rebase-needed` (row 14) | block `base moved; rebase needed` | none; there is no rebase stage |
 | head moved mid-repair | head differs while a repair record exists (row 5b) | accept the new head, redispatch review at it (row 6) | review attempts count per sha; `repair_used` kept |
-| gates and readiness disagree | `needs-review` or `needs-prove` while the gates say present (row 16) | redispatch `epoch-watch` once, then block `gates and readiness disagree` | one extra watch dispatch |
+| gates and readiness disagree | `needs-review` or `needs-prove` while the gates say present (row 15) | redispatch `epoch-watch` once, then block `gates and readiness disagree` | one extra watch dispatch |
 | issue goal outside access | `issue:` goal needs a repo or action `GH_GLOBAL` cannot reach | block with that reason, dispatch nothing | none |
-| CI pending | `wait-ci` (row 12) | wait | 120 minutes, then block `ci still pending` |
+| CI pending | `wait-ci` (row 12) | wait; readiness is refreshed every 15 minutes by row 10 | 120 minutes from `waiting_since`, then block `ci still pending` |
+| draft | PR is draft (row 4) | wait | 120 minutes from `waiting_since`, then block `pr is draft` |
+| stale readiness | a waiting or blocking `next` older than 15 minutes, or older than `resumed_at` | refresh dispatch of `epoch-watch` (row 10) | one per 15 minutes per unit, outside the stage budget |
 
 ## Handoff
 
