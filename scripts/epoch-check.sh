@@ -38,7 +38,7 @@ def review_valid($r; $c; $target; $sha):
     and (.verdict == "approve-ready" or .verdict == "discussion-needed" or .verdict == "blocked")
     and (.critical | nat) and (.issues | nat)
     and (if .verdict == "approve-ready" then .critical == 0 and .issues == 0
-         elif .verdict == "discussion-needed" then .critical == 0
+         elif .verdict == "discussion-needed" then .critical == 0 and .issues > 0
          else .critical > 0 end))
   and ([$c | split("\n")[] | select(startswith("- [CRITICAL] "))] | length) == $r.critical
   and ([$c | split("\n")[] | select(startswith("- [ISSUE] "))] | length) == $r.issues;

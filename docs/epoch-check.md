@@ -10,7 +10,7 @@ all of it is read once and pinned to one head sha. if the head moves mid-read, t
 2. github's merge state is acceptable (conflicts and a behind branch are named)
 3. ci by name: red blocks, pending waits, "no ci configured" is said out loud (it is not a pass)
 4. no unresolved review thread, no standing changes-requested review
-5. a review receipt at this head: `approve-ready`, or `discussion-needed` with zero issues. never `blocked`. exactly one receipt-bearing comment or review
+5. a review receipt at this head: `approve-ready`. a `discussion-needed` verdict lists issues, so it is not ready until they are addressed. never `blocked`. exactly one receipt-bearing comment or review
 6. a proof receipt at this head, exactly one
 
 `next` is one of `wait-ci | needs-review | needs-repair | needs-prove | address-threads | merge-ready | closed | merged | rebase-needed`. first matching row wins:
@@ -66,7 +66,7 @@ review:
 
 - keys, exactly: `schema, target, sha, verdict, critical, issues`
 - `schema` is `1`; `verdict` is `approve-ready | discussion-needed | blocked`
-- `approve-ready` needs critical 0 and issues 0; `discussion-needed` needs critical 0; `blocked` needs critical > 0
+- `approve-ready` needs critical 0 and issues 0; `discussion-needed` needs critical 0 and issues > 0; `blocked` needs critical > 0
 - the counts must equal the number of lines in the same comment starting `- [CRITICAL] ` and `- [ISSUE] `
 - reviews posted as github reviews must be made on the head commit
 
