@@ -1,14 +1,29 @@
 {
   "name": "Epoch Pack",
-  "version": "0.1",
+  "version": "1.0",
   "author": "Svector-anu",
   "license": "MIT",
-  "description": "epoch is your unattended software engineer, running inside your aeon instance: spec, build, review, prove and a merge-ready verdict, each pinned to one commit. you merge.",
+  "description": "epoch is your engineer, running inside your aeon instance: hand it a goal or an issue and it specs, builds, reviews, proves and watches the pull request until it is merge-ready. you merge.",
   "skills": [
+    {
+      "slug": "epoch",
+      "path": "skills/epoch",
+      "description": "the conductor: carries one goal or issue through spec, build, review, repair, prove and watch, one dispatched stage per tick, and resumes from a handoff file. suggested schedule */30 * * * * once you trust it (not enabled by default). never merges.",
+      "category": "dev",
+      "schedule": "workflow_dispatch",
+      "default_enabled": false,
+      "secrets_required": [
+        "GH_GLOBAL"
+      ],
+      "capabilities": [
+        "external_api",
+        "writes_external_host"
+      ]
+    },
     {
       "slug": "epoch-spec",
       "path": "skills/epoch-spec",
-      "description": "turn one intent into a repo map, an optional spec and one runnable work order per unit. plans only, no code.",
+      "description": "turn one intent into a repo map, an optional spec, one runnable work order per unit and a queue candidate for each. plans only, no code.",
       "category": "dev",
       "schedule": "workflow_dispatch",
       "default_enabled": false,
@@ -48,9 +63,24 @@
       ]
     },
     {
+      "slug": "epoch-prove",
+      "path": "skills/epoch-prove",
+      "description": "prove one pull request by running its work order's verify commands at the pinned head sha in a clean read-only actions run, then post a verify-run receipt. never merges.",
+      "category": "dev",
+      "schedule": "workflow_dispatch",
+      "default_enabled": false,
+      "secrets_required": [
+        "GH_GLOBAL"
+      ],
+      "capabilities": [
+        "external_api",
+        "writes_external_host"
+      ]
+    },
+    {
       "slug": "epoch-watch",
       "path": "skills/epoch-watch",
-      "description": "say whether a pull request is merge-ready: github state plus review and proof receipts at one head sha.",
+      "description": "say whether a pull request is merge-ready and what stage comes next: github state, ci, review threads, plus the review and proof receipts at one head sha.",
       "category": "dev",
       "schedule": "workflow_dispatch",
       "default_enabled": false,

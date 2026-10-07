@@ -15,41 +15,41 @@ metadata:
 
 # epoch-review
 
-review one pull request against the work order it claims to satisfy, at one exact head sha, and post a receipt-bearing github review that the dev-loop review gate will accept. you judge the diff. you never change it, never merge it, and never read how it was built.
+Review one pull request against the work order it claims to satisfy, at one exact head SHA, and post a receipt-bearing GitHub review that the dev-loop review gate will accept. You judge the diff. You never change it, never merge it, and never read how it was built.
 
 `${var}` selects the target:
 
-- `<owner/repo#N>` - review that pr at its current head.
-- `<owner/repo#N>@<40-char-sha>` - review it only if its head still equals that sha.
-- empty - fall back to `memory/skills/epoch-build/pull-request.json` and take **only** its `url` and `head_sha`. that file is a pointer, not evidence.
+- `<owner/repo#N>` — review that PR at its current head.
+- `<owner/repo#N>@<40-char-sha>` — review it only if its head still equals that SHA.
+- Empty — fall back to `memory/skills/epoch-build/pull-request.json` and take **only** its `url` and `head_sha`. That file is a pointer, not evidence.
 
-today is `${today}`.
+Today is `${today}`.
 
-## independence
+## Independence
 
-your verdict is worth nothing if it inherits the builder's reasoning. don't read `output/epoch-build/`, any builder result card, the builder's run record, or its log entries. read the order, the diff and the repo. if you've already seen the builder's rationale, say so in your result and mark the review `discussion-needed` rather than pretend to an independence you don't have.
+Your verdict is worth nothing if it inherits the builder's reasoning. Do not read `output/epoch-build/`, any builder result card, the builder's run record, or its log entries. Read the order, the diff, and the repository. If you have already seen the builder's rationale, say so in your result and mark the review `discussion-needed` rather than pretending to independence you do not have.
 
-if build and review ran on the same model family, say that in your result. a fresh context with no access to the builder's reasoning is the independence you do have, so don't overclaim it.
+If build and review ran on the same model family, say that in your result. Fresh context and no access to the builder's reasoning is the independence you do have; do not overclaim it.
 
-## do
+## Do
 
-1. **pin the sha first, from github, not from local state.**
+1. **Pin the SHA first, from GitHub, not from local state.**
 
-   before anything else, refuse to review a pull request whose state isn't OPEN. a verdict on a landed pr gates nothing, and the head-sha check alone won't catch it: a pr can merge seconds after opening, before any review runs.
+   Before anything else, refuse to review a pull request whose state is not OPEN. A verdict on a landed PR gates nothing, and the head-SHA check alone does not catch it: a PR can merge seconds after opening, before any review runs.
 
    ```
    gh pr view <N> --repo <owner>/<repo> --json state -q .state
    ```
 
-   if it isn't OPEN (merged or closed), stop without posting. report the state and exit.
+   If this is not OPEN (i.e. MERGED or CLOSED), stop without posting. Report the state and exit.
 
    ```
    gh api "repos/<owner>/<repo>/pulls/<N>" --jq .head.sha
    ```
 
-   if `${var}` supplied a sha and this differs, stop: the pr moved, and a review of the old head would be a lie. report the mismatch and exit without posting. every later step uses this one pinned value.
+   If `${var}` supplied a SHA and this differs, stop: the PR moved and a review of the old head would be a lie. Report the mismatch and exit without posting. Every later step uses this one pinned value.
 
-2. **get the diff without cloning.** read the change through the api:
+2. **Get the diff without cloning.** A full `git clone` of a big repository can exhaust the shell backend and kill the run, so read the change through the API:
 
    ```
    gh pr diff <N> --repo <owner>/<repo>
@@ -57,7 +57,7 @@ if build and review ran on the same model family, say that in your result. a fre
    gh api -H "Accept: application/vnd.github.raw+json" "repos/<owner>/<repo>/contents/<path>?ref=<sha>"
    ```
 
-   that's enough to review a diff and read any file at the pinned sha. clone only if step 5 needs to execute something, and then blobless and shallow, into a throwaway directory (print the path once and paste it; shell variables don't survive between tool calls):
+   That is enough to review a diff and to read any file at the pinned SHA. Clone only if step 5 needs to execute something, and then blobless and shallow, into a throwaway directory (print the path once and paste it; shell variables do not survive between tool calls):
 
    ```
    work=$(mktemp -d); echo "$work"
@@ -66,20 +66,20 @@ if build and review ran on the same model family, say that in your result. a fre
    git -C <work>/repo checkout <sha>
    ```
 
-   if a clone times out anyway, review from the diff alone and record that you couldn't execute the pr's verification. that's a `discussion-needed` at worst, never a made-up pass.
+   If a clone times out anyway, review from the diff alone and record in your result that you could not execute the PR's verification. That is a `discussion-needed` at worst, never a fabricated pass.
 
-3. **read the order the pr claims to satisfy.** the pr body names it; otherwise look under `memory/topics/*/orders/`. restate its ACCEPTANCE lines. a pr whose order you can't find is reviewable only against the repo's own standards, and you say so.
+3. **Read the order the PR claims to satisfy.** The PR body names it; otherwise look under `memory/topics/*/orders/`. Restate its ACCEPTANCE lines. A PR whose order you cannot find is reviewable only against the repository's own standards, and you say so.
 
-4. **review the diff** from step 2's `gh pr diff` output. judge only what changed. every finding names a file and a line and states the concrete failure, not a preference. classify each:
+4. **Review the diff** from step 2's `gh pr diff` output. Judge only what changed. Every finding names a file and line and states the concrete failure, not a preference. Classify each:
 
-   - **critical** - merging this causes a real defect: wrong behaviour, data loss, a broken build, a security hole, or a claim in the pr body that the diff doesn't support.
-   - **issue** - actionable and worth fixing before merge, but not a defect that breaks something.
+   - **critical** — merging this causes a real defect: wrong behaviour, data loss, a broken build, a security hole, or a claim in the PR body that the diff does not support.
+   - **issue** — actionable and worth fixing before merge, but not a defect that breaks something.
 
-   style, naming and taste aren't findings. neither is work the order forbade. if the diff does something outside SCOPE, that's critical.
+   Style, naming and taste are not findings. Neither is work the order forbade. If the diff does something outside SCOPE, that is critical.
 
-5. **check the pr's own claims.** if the body pastes verification output, re-run those commands at this sha and compare. a claim you can't reproduce is a critical finding. this is the highest-value thing you do: a diff that looks right and a claim that is false are different problems.
+5. **Check the PR's own claims.** If the body pastes verification output, re-run those commands at this SHA and compare. A claim you cannot reproduce is a critical finding. This is the highest-value thing you do: a diff that looks right and a claim that is false are different problems.
 
-6. **decide the verdict**, consistent with the counts. the gate enforces this and rejects a mismatch:
+6. **Decide the verdict**, consistent with the counts. The gate enforces this and will reject a mismatch:
 
    | verdict | requires |
    |---|---|
@@ -87,7 +87,16 @@ if build and review ran on the same model family, say that in your result. a fre
    | `discussion-needed` | `critical == 0` and `issues > 0` |
    | `blocked` | `critical > 0` |
 
-7. **check no receipt already exists at this sha, then post exactly one github review** carrying it. the gate requires exactly one, so a second voids both, including one that another skill or an earlier run already posted, which leaves the pr ungateable with two agreeing verdicts. count it the way the gate does (this account's reviews at this sha, a missing body treated as empty, the literal receipt prefix), and if the count isn't zero, stop without posting and report the existing receipt:
+7. **Check no receipt already exists at this SHA, then post exactly one GitHub
+   review** carrying it. The gate requires exactly one, so a second voids BOTH -
+   including one another skill or an earlier run of this one already posted,
+   leaving the PR ungateable with two agreeing verdicts. Check the same source
+   the gate reads, and if the count is not zero, stop without posting and report
+   the existing receipt:
+
+   Run the gate's own count, so "a receipt exists" means exactly what
+   `scripts/dev-loop-review.sh verify` means by it - this account's reviews at
+   this SHA, a missing body treated as empty, the literal receipt prefix:
 
    ```
    actor=$(gh api user --jq .login)
@@ -96,47 +105,47 @@ if build and review ran on the same model family, say that in your result. a fre
        '[.[] | select(.user.login == $actor and .commit_id == $sha) | .body // empty | select(contains("<!-- aeon-review:"))] | length'
    ```
 
-   use `--comment`, never `--approve`: when this account authored the pr, github refuses a self-approval, and the verdict rides in the receipt rather than in github's approval state.
+   Use `--comment`, never `--approve`: when this account authored the PR, GitHub refuses a self-approval, and the verdict rides in the receipt rather than in GitHub's approval state.
 
    ```
    gh pr review <N> --repo <owner>/<repo> --comment --body-file <file>
    ```
 
-   the body states each finding with its file and line, what you re-ran and its verbatim output, and ends with the receipt on its own line, exactly one per review:
+   The body states each finding with its file and line, what you re-ran and its verbatim output, and ends with the receipt on its own line, exactly one per review:
 
    ```
    <!-- aeon-review:{"schema":1,"target":"<owner>/<repo>#<N>","sha":"<sha>","verdict":"<verdict>","critical":<n>,"issues":<n>} -->
    ```
 
-   keys must be exactly `critical`, `issues`, `schema`, `sha`, `target`, `verdict`. no extra keys, no missing keys, no second marker anywhere in the body.
+   Keys must be exactly `critical`, `issues`, `schema`, `sha`, `target`, `verdict`. No extra keys, no missing keys, no second marker anywhere in the body.
 
-8. **write the verdict** to `memory/skills/epoch-review/verdict.json`. this write is unconditional: it happens whether or not the next step's self-check passes. the durable local record doesn't depend on that check.
+8. **Write the verdict** to `memory/skills/epoch-review/verdict.json`. This write is unconditional: it happens regardless of whether the next step's self-validation gate call succeeds or fails. The durable local record is not conditional on that check.
 
    ```json
    { "target": "<owner>/<repo>#<N>", "sha": "<sha>", "verdict": "<verdict>", "critical": 0, "issues": 0, "actionable": false }
    ```
 
-   `actionable` is `critical > 0 || issues > 0`. it's what a repair pass reads to know it's authorised.
+   `actionable` is `critical > 0 || issues > 0`. This is what a repair pass reads to know it is authorised.
 
-9. **validate your own receipt with the gate** and paste the verbatim output:
+9. **Validate your own receipt with the dev-loop review gate** and paste the verbatim output:
 
    ```
    bash scripts/dev-loop-review.sh verify <owner>/<repo>#<N> <sha>
    ```
 
-   a failure here means the posted review isn't admissible as a gate-passing receipt. it doesn't mean the verdict from step 8 is wrong or should be retracted. fix the receipt and post a corrected review only if the first one was malformed; otherwise report the failure and stop. never post two receipt-bearing reviews for the same sha, because the gate requires exactly one and rejects both.
+   A failure here means the posted review is not admissible as a gate-passing receipt — it does not mean the verdict you wrote in step 8 is wrong or should be retracted. Fix the receipt and post a corrected review only if the first one was malformed; otherwise report the failure and stop. The stop is about not posting a second or corrected review, not about the local record, which already exists. Never post two receipt-bearing reviews for the same SHA — the gate requires exactly one and will reject both.
 
-## do not
+## Do not
 
-- modify the pr, push to its branch, merge it, close it or approve it.
-- post more than one receipt-bearing review per sha.
-- review a sha other than the pinned one.
-- invent findings to look rigorous, or suppress one to look agreeable. a clean diff gets `approve-ready`.
-- report a verdict whose counts contradict it.
-- run anything in the background. foreground only, `timeout N` for long commands.
+- Do not modify the PR, push to its branch, merge it, close it, or approve it.
+- Do not post more than one receipt-bearing review per SHA.
+- Do not review a SHA other than the pinned one.
+- Do not invent findings to look rigorous, and do not suppress one to look agreeable. A clean diff gets `approve-ready`.
+- Do not report a verdict whose counts contradict it.
+- Do not background a job. Foreground only, `timeout N` for long commands.
 
-## result
+## Result
 
-state: the target and pinned sha, the verdict and both counts, each finding with file and line, what you re-ran and whether it reproduced, the verbatim gate output from step 9, and whether a different model family was involved. if you posted no review, the first line says why.
+State: the target and pinned SHA, the verdict and both counts, each finding with file and line, what you re-ran and whether it reproduced, the verbatim gate output from step 9, and whether cross-family independence was available. If you posted no review, the first line says why.
 
-append a `### epoch-review` entry to `memory/logs/${today}.md` with the target, sha and verdict.
+Append a `### epoch-review` entry to `memory/logs/${today}.md` with the target, SHA and verdict.
