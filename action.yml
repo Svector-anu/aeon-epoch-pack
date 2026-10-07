@@ -1,0 +1,68 @@
+name: epoch-check
+description: Is this pull request ready at its current head commit? Read-only. Names exactly what is missing.
+branding:
+  icon: check-circle
+  color: green
+
+inputs:
+  pr:
+    description: pull request number, or owner/repo#N. defaults to the pull request of the triggering event.
+    required: false
+    default: ""
+  trusted-actors:
+    description: comma-separated github logins allowed to post receipts. empty means any account (who posted is always printed).
+    required: false
+    default: ""
+  token:
+    description: read-only token (pull-requests, checks, statuses, contents read).
+    required: false
+    default: ${{ github.token }}
+  fail-when-not-ready:
+    description: exit non-zero when the pull request is not ready.
+    required: false
+    default: "true"
+
+outputs:
+  ready:
+    description: "true or false"
+    value: ${{ steps.check.outputs.ready }}
+  next:
+    description: wait-ci | needs-review | needs-repair | needs-prove | address-threads | merge-ready | closed | merged | rebase-needed
+    value: ${{ steps.check.outputs.next }}
+
+runs:
+  using: composite
+  steps:
+    - id: check
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        EPOCH_PR: ${{ inputs.pr }}
+        EPOCH_TRUSTED: ${{ inputs.trusted-actors }}
+        EPOCH_FAIL: ${{ inputs.fail-when-not-ready }}
+        EVENT_PR: ${{ github.event.pull_request.number }}
+        REPO: ${{ github.repository }}
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        set -uo pipefail
+        pr=${EPOCH_PR:-$EVENT_PR}
+        [ -n "$pr" ] || { echo "epoch-check: no pr input and the event has no pull request" >&2; exit 2; }
+        case "$pr" in *#*) target=$pr ;; *) target="$REPO#$pr" ;; esac
+        args=("$target" --json-file "$RUNNER_TEMP/epoch-check.json")
+        [ -z "$EPOCH_TRUSTED" ] || args+=(--trusted-actors "$EPOCH_TRUSTED")
+        code=0
+        "$ACTION_PATH/scripts/epoch-check.sh" "${args[@]}" || code=$?
+        if [ "$code" -eq 2 ]; then exit 2; fi
+        {
+          echo "ready=$(jq -r .ready "$RUNNER_TEMP/epoch-check.json")"
+          echo "next=$(jq -r .next "$RUNNER_TEMP/epoch-check.json")"
+        } >> "$GITHUB_OUTPUT"
+        jq -r '
+          "## epoch-check: " + (if .ready then "READY" else "NOT READY" end),
+          "", "`\(.target)` at `\(.sha)`, next: `\(.next)`", "",
+          (if (.blocking | length) > 0 then "### missing", (.blocking[] | "- " + (. | gsub("[`|<>]"; ""))) else "every condition holds at this head" end),
+          "", "review: \(.review.state)\(if .review.by then " by " + (.review.by | join(",")) else "" end)",
+          "", "proof: \(.proof.state)\(if .proof.by then " by " + (.proof.by | join(",")) else "" end)"
+        ' "$RUNNER_TEMP/epoch-check.json" >> "$GITHUB_STEP_SUMMARY"
+        if [ "$code" -ne 0 ] && [ "$EPOCH_FAIL" = "true" ]; then exit 1; fi
+        exit 0
