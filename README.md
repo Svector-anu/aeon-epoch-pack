@@ -117,6 +117,18 @@ the proof receipt points at an actions run. `epoch-prove` takes the verify comma
 
 github saying "mergeable" is one condition of six, not the answer.
 
+## works on any repo: epoch-check
+
+the "is this pr really ready" check does not need aeon. `scripts/epoch-check.sh` and the github action in this repo look at one pull request and say `READY` or `NOT READY` at its current commit, naming what is missing: failing ci by name, open review threads, a review or proof receipt that is absent or belongs to an older commit.
+
+```yaml
+- uses: Svector-anu/epoch@main
+  with:
+    pr: ${{ github.event.pull_request.number }}
+```
+
+any agent, or a person, can post a valid receipt, so you can adopt the check without the rest of epoch. the format and the ten-line workflow are in [docs/epoch-check.md](docs/epoch-check.md).
+
 ## limits, said plainly
 
 - **one repair pass.** if review is still actionable after it, the order is blocked and you decide.
